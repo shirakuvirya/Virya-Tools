@@ -37,7 +37,6 @@ def check_bag(bag_path):
     msg_count = 0
     topic_msg_counts = defaultdict(int)
 
-    total_msgs_est = 0
     try:
         import tqdm
         use_progress = True
@@ -71,7 +70,8 @@ def check_bag(bag_path):
                 "freq_pass": "FAIL",
                 "completeness": "0.0%",
                 "complete_pass": "FAIL",
-                "max_gap": "-"
+                "max_gap": "-",
+                "timestamp_order_pass": "FAIL"
             })
             bag_pass = False
             continue
@@ -84,6 +84,7 @@ def check_bag(bag_path):
 
         freq_ok = (expected_freq - tolerance) <= freq <= (expected_freq + tolerance)
         comp_ok = completeness >= COMPLETENESS_THRESHOLD
+        in_order = all(stamps[i] <= stamps[i+1] for i in range(len(stamps) - 1))
 
         # Print verdict with ✔ / ❌
         print(f"  📊 Duration: {duration:.2f}s, Msgs: {len(stamps)}, Freq: {freq:.2f} Hz", end=' ')
@@ -91,6 +92,7 @@ def check_bag(bag_path):
         print(f"  🧮 Completeness: {completeness*100:.1f}%", end=' ')
         print("✔" if comp_ok else "❌")
         print(f"  ⏱️ Max time gap between msgs: {max_gap:.3f}s")
+        print(f"  📏 Timestamps ordered: {'✔' if in_order else '❌'}")
 
         results.append({
             "topic": topic,
@@ -99,10 +101,11 @@ def check_bag(bag_path):
             "freq_pass": "PASS" if freq_ok else "FAIL",
             "completeness": f"{completeness*100:.2f}%",
             "complete_pass": "PASS" if comp_ok else "FAIL",
-            "max_gap": f"{max_gap:.3f}s"
+            "max_gap": f"{max_gap:.3f}s",
+            "timestamp_order_pass": "PASS" if in_order else "FAIL"
         })
 
-        if not freq_ok or not comp_ok:
+        if not (freq_ok and comp_ok and in_order):
             bag_pass = False
 
     # Save output to CSV
@@ -125,7 +128,6 @@ def check_bag(bag_path):
     return bag_pass
 
 
-
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python virya_bag_checker.py <path_to_bag_or_directory>")
@@ -136,11 +138,4 @@ if __name__ == "__main__":
         print(f"❌ Error: Path '{bag_path}' does not exist.")
         sys.exit(1)
 
-    # Extract proper name for CSV output
-    if os.path.isdir(bag_path):
-        out_dir = bag_path
-    else:
-        out_dir = os.path.dirname(os.path.abspath(bag_path))
-
     check_bag(bag_path)
-
